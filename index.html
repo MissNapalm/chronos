@@ -586,12 +586,61 @@
         interaction: { mode: "index", intersect: false },
         animation: false, // manual vertical wobble
         plugins: {
-          legend: { labels: { color: "rgba(255,255,255,0.9)", boxWidth: 10, boxHeight: 10 } },
-          tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.parsed.y)}` } }
+          legend: { 
+            labels: { 
+              color: "rgba(255,255,255,0.9)", 
+              boxWidth: 12, 
+              boxHeight: 12,
+              font: {
+                weight: 'bold'
+              }
+            }
+          },
+          tooltip: { 
+            backgroundColor: 'rgba(15, 17, 23, 0.85)',
+            borderColor: 'rgba(255,255,255,0.15)',
+            borderWidth: 1,
+            padding: 10,
+            titleFont: {
+              size: 13,
+              weight: 'bold'
+            },
+            bodyFont: {
+              size: 12
+            },
+            callbacks: { 
+              label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.parsed.y)}` 
+            }
+          }
         },
         scales: {
-          x: { grid: { color: "rgba(255,255,255,0.08)" }, ticks: { color: "rgba(255,255,255,0.85)", maxRotation: 0, autoSkip: true } },
-          y: { grid: { color: "rgba(255,255,255,0.08)" }, ticks: { color: "rgba(255,255,255,0.85)" } }
+          x: { 
+            grid: { 
+              color: "rgba(255,255,255,0.08)",
+              lineWidth: 0.5
+            }, 
+            ticks: { 
+              color: "rgba(255,255,255,0.85)", 
+              maxRotation: 0, 
+              autoSkip: true,
+              font: {
+                size: 10
+              }
+            } 
+          },
+          y: { 
+            grid: { 
+              color: "rgba(255,255,255,0.08)",
+              lineWidth: 0.5,
+              drawBorder: false
+            }, 
+            ticks: { 
+              color: "rgba(255,255,255,0.85)",
+              font: {
+                size: 10
+              }
+            } 
+          }
         }
       };
     }
@@ -604,9 +653,50 @@
         const hh = d.getHours().toString().padStart(2,"0");
         labels.push(`${hh}:00`);
       }
-      const core  = labels.map((_, i) => 96 + 1.2 * Math.sin(i * 0.25) + rnd(-0.6, 0.6));
-      const sink  = labels.map((_, i) => 50 + 6.0 * Math.sin(i * 0.22 + 0.7) + rnd(-3, 3));
-      const noise = labels.map((_, i) => 10 + 3.0 * Math.sin(i * 0.35 + 1.2) + rnd(-1.2, 1.2)); // for display only
+      
+      // Generate more complex starting patterns with multiple frequency components
+      // Core stability - high range with complex oscillation pattern
+      const core = labels.map((_, i) => {
+        // Main wave with medium frequency
+        const mainWave = 92.5 + 2.8 * Math.sin(i * 0.25);
+        // Higher frequency component
+        const highFreq = 1.4 * Math.sin(i * 0.8);
+        // Very low frequency drift
+        const drift = 2.2 * Math.sin(i * 0.06);
+        // Controlled randomness
+        const noise = rnd(-1.0, 1.0);
+        
+        return mainWave + highFreq + drift + noise;
+      });
+      
+      // Flux sink - medium range with varied pattern
+      const sink = labels.map((_, i) => {
+        // Main wave with medium frequency
+        const mainWave = 50 + 8.0 * Math.sin(i * 0.22 + 0.7);
+        // Secondary wave with different phase
+        const secWave = 4.5 * Math.sin(i * 0.15 + 1.8);
+        // Higher frequency detail
+        const detail = 2.8 * Math.sin(i * 0.65 + 0.3);
+        // Controlled randomness
+        const noise = rnd(-3.5, 3.5);
+        
+        return mainWave + secWave + detail + noise;
+      });
+      
+      // Chrono noise - lower range with erratic but patterned movement
+      const noise = labels.map((_, i) => {
+        // Main wave with medium frequency
+        const mainWave = 12 + 3.5 * Math.sin(i * 0.35 + 1.2);
+        // Higher frequency components
+        const highFreq = 2.2 * Math.sin(i * 0.7 + 0.9);
+        // Even higher frequency detail
+        const detail = 1.6 * Math.sin(i * 1.2 + 2.1);
+        // Controlled randomness
+        const randomness = rnd(-1.8, 1.8);
+        
+        return mainWave + highFreq + detail + randomness;
+      });
+      
       return { labels, core, sink, noise };
     }
 
@@ -634,9 +724,9 @@
         data: {
           labels: t.labels,
           datasets: [
-            { label: "Core Stability (%)", data: t.core,  borderColor: COLORS.blue,   backgroundColor: COLORS.blueFill,   fill: true, tension: 0.35, pointRadius: 0, borderWidth: 2.25 },
-            { label: "Flux Sink (index)",  data: t.sink,  borderColor: COLORS.violet, backgroundColor: COLORS.violetFill, fill: true, tension: 0.35, pointRadius: 0, borderWidth: 2.25 },
-            { label: "Chrono Noise",       data: t.noise, borderColor: COLORS.green,  backgroundColor: COLORS.greenFill,  fill: true, tension: 0.35, pointRadius: 0, borderWidth: 1.75 }
+            { label: "Core Stability (%)", data: t.core,  borderColor: COLORS.blue,   backgroundColor: COLORS.blueFill,   fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2.5 },
+            { label: "Flux Sink (index)",  data: t.sink,  borderColor: COLORS.violet, backgroundColor: COLORS.violetFill, fill: true, tension: 0.45, pointRadius: 0, borderWidth: 2.5 },
+            { label: "Chrono Noise",       data: t.noise, borderColor: COLORS.green,  backgroundColor: COLORS.greenFill,  fill: true, tension: 0.5, pointRadius: 0, borderWidth: 2 }
           ]
         },
         options: { 
@@ -872,16 +962,22 @@
       let throttle = 0;
       let riskCheckTimer = 0; // Timer to check risk levels periodically
 
-    const ampCore  = 1.15; // %
-    const ampSink  = 3.6;  // index
-    const ampNoise = 1.0;  // units
-    const speed = 1.26;     // radians/second (increased by 40% from 0.9)
+    const ampCore  = 3.8;  // % (further increased from 2.5)
+    const ampSink  = 8.5;  // index (increased from 7.2)
+    const ampNoise = 3.2;  // units (increased from 2.4)
+    const speed = 1.45;     // radians/second (increased from 1.26)
     
-    // Simple easing function for smoother transitions
-    // Enhanced easing functions for smoother animations
+    // Enhanced easing functions for dynamic animations
     function easeOut(t) { return 1 - Math.pow(1 - t, 2); }
     function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
     function easeInOutQuad(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+    function easeInOutBack(t) { 
+      const c1 = 1.70158;
+      const c2 = c1 * 1.525;
+      return t < 0.5
+        ? (Math.pow(2 * t, 2) * ((c2 + 1) * 2 * t - c2)) / 2
+        : (Math.pow(2 * t - 2, 2) * ((c2 + 1) * (t * 2 - 2) + c2) + 2) / 2;
+    }
 
       function frame(now) {
         // Use performance.now() for more accurate timing
@@ -908,20 +1004,135 @@
         if (throttle >= 0.016) { // 60fps
           throttle = 0;
 
-          // Flux line chart
+          // Flux line chart - wilder but symmetrical patterns
           if (tempChart) {
             const core = tempChart.data.datasets[0].data;
             const sink = tempChart.data.datasets[1].data;
             const noise = tempChart.data.datasets[2].data;
-
-            for (let i = 0; i < core.length; i++) {
+            
+              // Initialize enhanced harmonic patterns if not already done
+              if (!TEMP_BASE.harmonics) {
+                TEMP_BASE.harmonics = {
+                  core: [1.0, 2.0, 0.5, 3.2],   // Core uses 4 harmonic frequencies
+                  sink: [0.8, 1.5, 0.3, 2.7],   // Sink uses 4 different harmonic frequencies
+                  noise: [1.2, 2.2, 0.7, 3.5]   // Noise uses its own 4 harmonic frequencies
+                };
+                
+                // Enhanced amplitudes for more dramatic wave patterns while maintaining symmetry
+                TEMP_BASE.harmAmp = {
+                  core: [1.0, 0.45, 0.28, 0.15],   // Amplitudes for core harmonics
+                  sink: [1.0, 0.55, 0.32, 0.18],   // Amplitudes for sink harmonics
+                  noise: [1.0, 0.65, 0.38, 0.22]   // Amplitudes for noise harmonics
+                };
+                
+                // Add phase relationships to create coordinated wave patterns
+                TEMP_BASE.phaseShift = {
+                  core: [0, Math.PI/4, Math.PI/2, Math.PI*3/4],
+                  sink: [Math.PI/6, Math.PI/3, Math.PI*2/3, Math.PI*5/6],
+                  noise: [Math.PI/8, Math.PI*3/8, Math.PI*5/8, Math.PI*7/8]
+                };
+                
+                // Add secondary wave system with longer periods for complex patterns
+                TEMP_BASE.secondaryWave = {
+                  frequency: 0.18,  // Much slower than primary waves
+                  amplitude: 0.35,  // Moderate influence on overall pattern
+                  phases: Array(4).fill(0).map(() => Math.random() * Math.PI * 2)
+                };
+              }            for (let i = 0; i < core.length; i++) {
               const phase = TEMP_BASE.phases[i];
-              const windowMod = 0.85 + 0.15 * Math.sin(i * 0.35);
-              core[i]  = clamp(90, 100, TEMP_BASE.core[i]  + Math.sin(t + phase)      * ampCore  * windowMod);
-              sink[i]  = clamp(30,  70,  TEMP_BASE.sink[i]  + Math.sin(t*0.9 + phase)  * ampSink  * windowMod * 0.85);
-              noise[i] = clamp( 5,  18,  TEMP_BASE.noise[i] + Math.sin(t*1.2 + phase)  * ampNoise * windowMod * 0.9);
+              // Enhanced window modulation for more pronounced wave shape
+              const windowMod = 0.8 + 0.3 * Math.sin(i * 0.35);
+              
+              // Composite waveforms using harmonic synthesis (combining multiple sine waves)
+              // This creates complex but symmetric patterns
+              
+              // Calculate global pattern modulation that affects all lines
+              // This creates coordinated "surge" patterns across all three lines
+              const globalSurge = 0.3 * Math.sin(t * 0.24) * Math.sin(t * 0.13 + Math.PI/4);
+              const turbulence = 0.25 * Math.sin(t * 0.07) * Math.cos(t * 0.05);
+              
+              // Secondary wave that creates long-period modulation
+              const secondaryMod = TEMP_BASE.secondaryWave.amplitude * 
+                                  Math.sin(t * TEMP_BASE.secondaryWave.frequency + 
+                                          TEMP_BASE.secondaryWave.phases[i % 4]);
+              
+              // Core line - more dynamic but still most stable of the three
+              let coreWave = 0;
+              for (let h = 0; h < TEMP_BASE.harmonics.core.length; h++) {
+                const freq = TEMP_BASE.harmonics.core[h];
+                const amp = TEMP_BASE.harmAmp.core[h];
+                const phaseShift = TEMP_BASE.phaseShift.core[h];
+                
+                // Add both sine and cosine components for more complex patterns
+                coreWave += Math.sin(t * freq + phase * (1 + h*0.1) + phaseShift) * amp;
+                coreWave += Math.cos(t * freq * 0.7 + phase * (0.8 + h*0.15) + phaseShift) * amp * 0.6;
+              }
+              
+              // Add harmonic modulation and global effects
+              coreWave *= 1 + 0.25 * Math.sin(t * 0.32) + globalSurge + secondaryMod;
+              // Add turbulence effect that creates controlled instability
+              coreWave += turbulence * Math.sin(phase * 2.5);
+              
+              // Normalize and apply window modulation with enhanced scaling
+              coreWave = coreWave / 1.65 * ampCore * windowMod;
+              core[i] = clamp(85, 100, TEMP_BASE.core[i] + coreWave);
+              
+              // Sink line - much more dynamic with complex pattern interaction
+              let sinkWave = 0;
+              for (let h = 0; h < TEMP_BASE.harmonics.sink.length; h++) {
+                const freq = TEMP_BASE.harmonics.sink[h];
+                const amp = TEMP_BASE.harmAmp.sink[h];
+                const phaseShift = TEMP_BASE.phaseShift.sink[h];
+                
+                // Enhanced wave pattern with sine/cosine components
+                sinkWave += Math.sin(t * freq + phase * (0.9 + h*0.15) + phaseShift) * amp;
+                sinkWave += Math.cos(t * freq * 0.85 + phase * (0.75 + h*0.2) + phaseShift) * amp * 0.7;
+              }
+              
+              // Add resonance pattern with FM-style synthesis for rich harmonics
+              sinkWave *= 1 + 0.35 * Math.sin(t * 0.38 + Math.sin(t * 0.17) * 0.5);
+              // Add global effects for coordinated movement
+              sinkWave += globalSurge * 3.8 + secondaryMod * 2.0;
+              // Add turbulence with phase offset for varied effect
+              sinkWave += turbulence * 1.8 * Math.sin(phase * 3.2 + Math.PI/3);
+              
+              // Normalize and apply enhanced window modulation
+              sinkWave = sinkWave / 1.75 * ampSink * windowMod;
+              sink[i] = clamp(22, 78, TEMP_BASE.sink[i] + sinkWave);
+              
+              // Noise line - most dynamic of all three with complex patterns
+              let noiseWave = 0;
+              for (let h = 0; h < TEMP_BASE.harmonics.noise.length; h++) {
+                const freq = TEMP_BASE.harmonics.noise[h];
+                const amp = TEMP_BASE.harmAmp.noise[h];
+                const phaseShift = TEMP_BASE.phaseShift.noise[h];
+                
+                // Enhanced wave pattern with sine/cosine components and greater complexity
+                noiseWave += Math.sin(t * freq + phase * (1.1 + h*0.22) + phaseShift) * amp;
+                noiseWave += Math.cos(t * freq * 0.92 + phase * (1.05 + h*0.25) + phaseShift) * amp * 0.8;
+                
+                // Add harmonically related sub-oscillators for each primary component
+                noiseWave += Math.sin(t * freq * 1.5 + phase * (1.15 + h*0.15) + phaseShift*2) * amp * 0.4;
+              }
+              
+              // Add complex resonance pattern with multiple modulators
+              noiseWave *= 1 + 0.45 * Math.sin(t * 0.42 + Math.sin(t * 0.18) * 0.7 + Math.cos(t * 0.11) * 0.3);
+              // Add stronger response to global effects
+              noiseWave += globalSurge * 4.5 + secondaryMod * 2.5;
+              // Add enhanced turbulence effect
+              noiseWave += turbulence * 2.2 * Math.sin(phase * 4.0 + Math.PI/2);
+              
+              // Normalize and apply enhanced window modulation
+              noiseWave = noiseWave / 1.9 * ampNoise * windowMod;
+              noise[i] = clamp(2, 25, TEMP_BASE.noise[i] + noiseWave);
             }
-            tempChart.update('none');
+            
+            // Only update every other frame for performance
+            if (window.tempFrameCount === undefined) window.tempFrameCount = 0;
+            window.tempFrameCount = (window.tempFrameCount + 1) % 2;
+            if (window.tempFrameCount === 0) {
+              tempChart.update('none');
+            }
 
             const current = core[core.length - 1];
             document.getElementById("currentCore").textContent = `${Math.round(current)}%`;
