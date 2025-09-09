@@ -1475,12 +1475,17 @@
                   { border: COLORS.amber, bg: COLORS.amberFill },
                   { border: COLORS.blue, bg: COLORS.blueFill }
                 ];
+                let colorChanged = false;
                 if (tempChart) {
                   for (let i = 0; i < 3; i++) {
-                    tempChart.data.datasets[i].borderColor = tempChartColors[window.tempChartColorIndex].border;
-                    tempChart.data.datasets[i].backgroundColor = tempChartColors[window.tempChartColorIndex].bg;
+                    if (tempChart.data.datasets[i].borderColor !== tempChartColors[window.tempChartColorIndex].border ||
+                        tempChart.data.datasets[i].backgroundColor !== tempChartColors[window.tempChartColorIndex].bg) {
+                      tempChart.data.datasets[i].borderColor = tempChartColors[window.tempChartColorIndex].border;
+                      tempChart.data.datasets[i].backgroundColor = tempChartColors[window.tempChartColorIndex].bg;
+                      colorChanged = true;
+                    }
                   }
-                  tempChart.update('none');
+                  if (colorChanged) tempChart.update('none');
                 }
               }
               setTimeout(() => {
