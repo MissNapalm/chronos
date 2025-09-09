@@ -1464,21 +1464,24 @@
               
             case 'Recalibrate Beacons':
               showNotification("Temporal beacons recalibrating...", "info");
-              // Instantly cycle tempChart line colors
+              // Instantly cycle tempChart line colors only if changed
               if (typeof window.tempChartColorIndex === 'undefined') window.tempChartColorIndex = 0;
+              const prevColorIndex = window.tempChartColorIndex;
               window.tempChartColorIndex = (window.tempChartColorIndex + 1) % 4;
-              const tempChartColors = [
-                { border: COLORS.violet, bg: COLORS.violetFill },
-                { border: COLORS.green, bg: COLORS.greenFill },
-                { border: COLORS.amber, bg: COLORS.amberFill },
-                { border: COLORS.blue, bg: COLORS.blueFill }
-              ];
-              if (tempChart) {
-                for (let i = 0; i < 3; i++) {
-                  tempChart.data.datasets[i].borderColor = tempChartColors[window.tempChartColorIndex].border;
-                  tempChart.data.datasets[i].backgroundColor = tempChartColors[window.tempChartColorIndex].bg;
+              if (window.tempChartColorIndex !== prevColorIndex) {
+                const tempChartColors = [
+                  { border: COLORS.violet, bg: COLORS.violetFill },
+                  { border: COLORS.green, bg: COLORS.greenFill },
+                  { border: COLORS.amber, bg: COLORS.amberFill },
+                  { border: COLORS.blue, bg: COLORS.blueFill }
+                ];
+                if (tempChart) {
+                  for (let i = 0; i < 3; i++) {
+                    tempChart.data.datasets[i].borderColor = tempChartColors[window.tempChartColorIndex].border;
+                    tempChart.data.datasets[i].backgroundColor = tempChartColors[window.tempChartColorIndex].bg;
+                  }
+                  tempChart.update('none');
                 }
-                tempChart.update('none');
               }
               setTimeout(() => {
                 showNotification("Beacons recalibrated to quantum baseline", "info");
