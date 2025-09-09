@@ -1476,7 +1476,10 @@
                   { border: COLORS.blue, bg: COLORS.blueFill }
                 ];
                 let colorChanged = false;
-                if (tempChart) {
+                // Only update if chart is visible
+                const tempChartCanvas = document.getElementById('tempChart');
+                const isVisible = tempChartCanvas && tempChartCanvas.offsetParent !== null;
+                if (tempChart && isVisible) {
                   for (let i = 0; i < 3; i++) {
                     if (tempChart.data.datasets[i].borderColor !== tempChartColors[window.tempChartColorIndex].border ||
                         tempChart.data.datasets[i].backgroundColor !== tempChartColors[window.tempChartColorIndex].bg) {
