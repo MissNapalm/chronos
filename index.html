@@ -546,12 +546,15 @@
     const RISK_BASE = { 
       values: [], 
       phases: [],
-      interpolationSpeed: 0.15, // How quickly the risk levels interpolate to new values
+      interpolationSpeed: 0.084, // 0.06 * 1.4 = 0.084 (40% faster)
       spikeMagnitudes: [], // Tracks current spike magnitudes for each risk category
       categoryShiftTime: 0, // Time until next category shift
       activeCategory: -1, // Currently "active" risk category
       labelChangeTimer: 15, // Time until a risk label changes
-      previousLabels: [] // Keeps track of recently used labels
+      previousLabels: [], // Keeps track of recently used labels
+      waveOffsets: [], // Offsets for smooth wave patterns
+      waveFreqs: [], // Frequencies for smooth wave patterns
+      previousTargets: [] // For target smoothing
     };
     
     const CHRONON_BASE = { 
@@ -872,24 +875,37 @@
     const ampCore  = 1.15; // %
     const ampSink  = 3.6;  // index
     const ampNoise = 1.0;  // units
-    const speed = 0.9;     // radians/second
+    const speed = 1.26;     // radians/second (increased by 40% from 0.9)
+    
+    // Simple easing function for smoother transitions
+    // Enhanced easing functions for smoother animations
+    function easeOut(t) { return 1 - Math.pow(1 - t, 2); }
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+    function easeInOutQuad(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
 
       function frame(now) {
-        const dt = (now - last) / 1000; // Delta time in seconds
+        // Use performance.now() for more accurate timing
+        now = now || performance.now();
+        // Cap delta time more aggressively to eliminate frame spikes
+        const dt = Math.min(0.033, (now - last) / 1000); // Max 33ms (30fps) to eliminate jitter from long frames
         last = now;
+        
+        // Use fixed timestep with 40% faster timing
+        const fixedDt = 1/60 * 1.4; // Fixed timestep sped up by 40%
+        t += speed * fixedDt;
         throttle += dt;
-        t += speed * dt;
         
-        // Increment risk check timer
-        riskCheckTimer += dt;
+        // Increment risk check timer with fixed timestep for consistency
+        riskCheckTimer += fixedDt;
         
-        // Check risk levels every 3 seconds
-        if (riskCheckTimer >= 3) {
+        // Check risk levels less frequently (every 5 seconds instead of 3)
+        if (riskCheckTimer >= 5) {
           riskCheckTimer = 0;
           checkRiskLevels();
         }
 
-        if (throttle >= 0.12) {
+        // Ensure consistent frame updates with fixed timing
+        if (throttle >= 0.016) { // 60fps
           throttle = 0;
 
           // Flux line chart
@@ -938,22 +954,30 @@
             for (let i = 0; i < data.length; i++) {
               // Create more dynamic, unpredictable data changes
               
-              // Base oscillation (keeps some consistency)
-              const baseOscillation = 30 + 45 * Math.sin(t * 1.8 + RISK_BASE.phases[i]);
+              // Base oscillation with increased frequency (40% faster)
+              // Using regular sine wave for full motion range at higher frequency
+              const sineValue = Math.sin(t * 0.84 + RISK_BASE.phases[i]); // 0.6 * 1.4 = 0.84
+              // Allow full range from 20 (near center) to 85 (near edge)
+              const baseOscillation = 52.5 + 32.5 * sineValue;
               
-              // Add randomized "risk spikes" that come and go
-              const spikeChance = 0.0001; // 3% chance per update
+              // Use predetermined patterns instead of random spikes to reduce jitter
+              // Each data point now follows a smooth wave pattern
               const currentSpikeFactor = (RISK_BASE.spikeMagnitudes && RISK_BASE.spikeMagnitudes[i]) || 0;
               
-              // Decay existing spikes
-              if (currentSpikeFactor > 0) {
-                RISK_BASE.spikeMagnitudes[i] = Math.max(0, currentSpikeFactor - dt * 8);
-              } 
-              // Random chance to create new spike
-              else if (Math.random() < spikeChance) {
-                if (!RISK_BASE.spikeMagnitudes) RISK_BASE.spikeMagnitudes = Array(data.length).fill(0);
-                RISK_BASE.spikeMagnitudes[i] = 20 + Math.random() * 50; // Random spike magnitude
+              // Instead of random spikes, create smooth wave patterns with different frequencies
+              // This gives visual variety without jitter
+              if (!RISK_BASE.waveOffsets) {
+                RISK_BASE.waveOffsets = Array(data.length).fill(0).map(() => Math.random() * Math.PI * 2);
+                RISK_BASE.waveFreqs = Array(data.length).fill(0).map(() => 0.2 + Math.random() * 0.5);
               }
+              
+              // Create a smooth oscillating value unique to each point (40% faster)
+              const waveOffset = RISK_BASE.waveOffsets[i];
+              const waveFreq = RISK_BASE.waveFreqs[i] * 1.4; // 40% faster frequency
+              const smoothWave = Math.sin(t * waveFreq + waveOffset) * 15;
+              
+              // Set this as our spike factor instead of using random spikes
+              RISK_BASE.spikeMagnitudes[i] = smoothWave;
               
               // Occasional full category shift (major risk change in one area)
               if (!RISK_BASE.categoryShiftTime) RISK_BASE.categoryShiftTime = 0;
@@ -971,20 +995,54 @@
                 } while (newCategory === oldCategory && data.length > 1);
                 
                 RISK_BASE.activeCategory = newCategory;
-                RISK_BASE.categoryShiftTime = 8 + Math.random() * 12; // 3-10 seconds until next shift
+                RISK_BASE.categoryShiftTime = (8 + Math.random() * 12) / 1.4; // 40% faster category shifts
                 
                 // Log the category shift for debugging (can be removed)
                 console.log(`Risk focus shifted to: ${labels[newCategory]}`);
               }
               
-              // Apply active category boost if this is the currently focused risk
-              const categoryBoost = (i === RISK_BASE.activeCategory) ? 50 * Math.sin(t * 2.5) : 0;
+              // Apply active category boost if this is the currently focused risk (40% faster)
+              // Using regular sine wave for both inward and outward movement
+              // Increased oscillation speed while maintaining smoothness
+              const boostOscillation = Math.sin(t * 1.68); // 1.2 * 1.4 = 1.68 (40% faster)
+              // Use smoother transition for category boost that pushes both ways
+              const categoryBoost = (i === RISK_BASE.activeCategory) ? 40 * boostOscillation : 0;
+              
+              // No random extreme pushes (removed to reduce jitter)
+              let extremePush = 0;
               
               // Combine all factors to create the final data point
               const spikeFactor = (RISK_BASE.spikeMagnitudes && RISK_BASE.spikeMagnitudes[i]) || 0;
-              const targetValue = clamp(5, 95, baseOscillation + spikeFactor + categoryBoost);
-              const diff = targetValue - data[i];
-              data[i] += diff * RISK_BASE.interpolationSpeed;
+              // Create the target with smooth components only (base oscillation, smooth wave pattern, and category boost)
+              const rawTarget = baseOscillation + spikeFactor + categoryBoost;
+              // Allow range from 10 (near center) to 95 (near edge) - narrowed slightly for stability
+              const targetValue = clamp(10, 95, rawTarget);
+              
+              // Track previous target values for smoothing
+              if (!RISK_BASE.previousTargets) {
+                RISK_BASE.previousTargets = Array(data.length).fill(null);
+              }
+              
+              // Apply a weighted average with previous target for extra smoothness
+              // This creates smooth transitions between consecutive frames
+              let smoothedTarget = targetValue;
+              if (RISK_BASE.previousTargets[i] !== null) {
+                // 70% current target, 30% previous target for smooth blending
+                smoothedTarget = targetValue * 0.7 + RISK_BASE.previousTargets[i] * 0.3;
+              }
+              
+              // Remember this target for next frame's smoothing
+              RISK_BASE.previousTargets[i] = smoothedTarget;
+              
+              // No more random pulls (removed to eliminate jitter)
+              // Instead use a very smooth transition toward target
+              
+              const adjustedTarget = targetValue;
+              const diff = adjustedTarget - data[i];
+              
+              // Use faster interpolation for quicker but still smooth animations (40% faster)
+              // Increased the interpolation speed by 40%
+              data[i] += diff * easeOutCubic((RISK_BASE.interpolationSpeed || 0.112)); // 0.08 * 1.4 = 0.112
             }
             
             // Occasionally change a risk label to simulate evolving risk types
@@ -1078,15 +1136,20 @@
               const anomalyEffect = CHRONON_BASE.anomalyMagnitudes[i] || 0;
               
               // Create the final data point (chronon level can't exceed 100%)
-              const newValue = clamp(0, 100, 
+              const targetValue = clamp(0, 100, 
                 CHRONON_SUPPLY + // Current actual supply level
                 (baseOscillation - CHRONON_SUPPLY) * 0.1 + // Pull toward the oscillating base
                 stressEffect + // System stress causes fluctuations
                 (anomalyEffect * (Math.random() > 0.5 ? -1 : 1)) // Anomalies cause spikes up or down
               );
               
-              // Update the data point
-              data[i] = newValue;
+              // Smooth transition to the target value using simple easing
+              const currentValue = data[i] || 0;
+              const diff = targetValue - currentValue;
+              const smoothingFactor = 0.1; // Lower = smoother but slower transitions
+              
+              // Update the data point with enhanced smooth interpolation
+              data[i] = currentValue + (diff * easeInOutQuad(smoothingFactor));
               
               // Store new base value (slowly follows actual level)
               CHRONON_BASE.values[i] = CHRONON_SUPPLY + (Math.random() - 0.5) * 2;
@@ -1266,11 +1329,51 @@
               
             case 'Auto-Mitigate':
               showNotification("Auto-mitigation protocols enabled", "info");
-              // Reduce risk values gradually
+              playSound('success');
+              
+              // Create dramatic visual effect for the button
+              const btn = this;
+              btn.style.backgroundColor = 'rgba(57, 217, 138, 0.3)';
+              btn.style.borderColor = 'rgba(57, 217, 138, 0.7)';
+              btn.style.color = '#39D98A';
+              
+              // Reduce risk values gradually with enhanced visual feedback
+              const pulseElement = document.querySelector('.status-panel');
+              pulseElement.style.transition = 'box-shadow 0.5s ease-in-out';
+              
+              let pulseCount = 0;
+              const pulseInterval = setInterval(() => {
+                if (pulseCount % 2 === 0) {
+                  pulseElement.style.boxShadow = '0 0 15px rgba(57, 217, 138, 0.5)';
+                } else {
+                  pulseElement.style.boxShadow = 'none';
+                }
+                pulseCount++;
+                
+                if (pulseCount > 8) {
+                  clearInterval(pulseInterval);
+                  pulseElement.style.boxShadow = 'none';
+                }
+              }, 500);
+              
+              // Reduce risk values with enhanced easing for smoother transition
               const interval = setInterval(() => {
-                RISK_BASE.values = RISK_BASE.values.map(v => Math.max(5, v * 0.95));
-                if (RISK_BASE.values.every(v => v < 20)) clearInterval(interval);
-              }, 1000);
+                if (riskChart) {
+                  const data = riskChart.data.datasets[0].data;
+                  for (let i = 0; i < data.length; i++) {
+                    data[i] = Math.max(5, data[i] * 0.85);
+                  }
+                  riskChart.update();
+                }
+                if (riskChart && riskChart.data.datasets[0].data.every(v => v < 20)) clearInterval(interval);
+              }, 800);
+              
+              // Reset button style after effect completes
+              setTimeout(() => {
+                btn.style.backgroundColor = '';
+                btn.style.borderColor = '';
+                btn.style.color = '';
+              }, 5000);
               break;
               
             case 'Audit Timeline':
